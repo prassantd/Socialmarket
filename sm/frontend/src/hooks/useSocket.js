@@ -10,7 +10,7 @@ export const useSocket = () => {
 
   useEffect(() => {
     if (user && !_socket) {
-      _socket = io('http://localhost:5000', { transports: ['websocket'] });
+      _socket = io(' https://socialmarket-backend.onrender.com', { transports: ['websocket'] });
       _socket.on('connect', () => _socket.emit('user:online', user._id));
       ref.current = _socket;
     }
