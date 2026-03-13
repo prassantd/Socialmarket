@@ -1,10 +1,74 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { postAPI, errMsg } from '../api';
 import { useAuth } from '../hooks/useAuth';
 import { ago, REACTIONS, imgSrc } from '../utils/helpers';
 import Avatar from './Avatar';
 import toast from 'react-hot-toast';
+
+// Lightbox — fullscreen image viewer with prev/next navigation
+const Lightbox = ({ images, startIndex, onClose }) => {
+  const [idx, setIdx] = useState(startIndex);
+
+  useEffect(() => {
+    const onKey = e => {
+      if (e.key === 'Escape')    onClose();
+      if (e.key === 'ArrowRight') setIdx(i => (i + 1) % images.length);
+      if (e.key === 'ArrowLeft')  setIdx(i => (i - 1 + images.length) % images.length);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [images.length, onClose]);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.92)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center' }}
+    >
+      {/* Close button */}
+      <button onClick={onClose} style={{ position:'absolute', top:16, right:20, color:'#fff', fontSize:32, background:'none', border:'none', cursor:'pointer', lineHeight:1, zIndex:10 }}>×</button>
+
+      {/* Counter */}
+      {images.length > 1 && (
+        <div style={{ position:'absolute', top:18, left:'50%', transform:'translateX(-50%)', color:'#fff', fontSize:13, fontWeight:600, background:'rgba(0,0,0,.5)', padding:'4px 12px', borderRadius:99 }}>
+          {idx + 1} / {images.length}
+        </div>
+      )}
+
+      {/* Prev button */}
+      {images.length > 1 && (
+        <button onClick={e => { e.stopPropagation(); setIdx(i => (i - 1 + images.length) % images.length); }}
+          style={{ position:'absolute', left:16, color:'#fff', fontSize:36, background:'rgba(255,255,255,.15)', border:'none', cursor:'pointer', borderRadius:'50%', width:50, height:50, display:'flex', alignItems:'center', justifyContent:'center' }}>‹</button>
+      )}
+
+      {/* Image */}
+      <img
+        src={imgSrc(images[idx].url)}
+        alt=""
+        onClick={e => e.stopPropagation()}
+        style={{ maxWidth:'90vw', maxHeight:'90vh', objectFit:'contain', borderRadius:8, boxShadow:'0 8px 40px rgba(0,0,0,.6)' }}
+      />
+
+      {/* Next button */}
+      {images.length > 1 && (
+        <button onClick={e => { e.stopPropagation(); setIdx(i => (i + 1) % images.length); }}
+          style={{ position:'absolute', right:16, color:'#fff', fontSize:36, background:'rgba(255,255,255,.15)', border:'none', cursor:'pointer', borderRadius:'50%', width:50, height:50, display:'flex', alignItems:'center', justifyContent:'center' }}>›</button>
+      )}
+
+      {/* Thumbnail strip */}
+      {images.length > 1 && (
+        <div style={{ position:'absolute', bottom:16, left:'50%', transform:'translateX(-50%)', display:'flex', gap:6 }}>
+          {images.map((img, i) => (
+            <div key={i} onClick={e => { e.stopPropagation(); setIdx(i); }}
+              style={{ width:48, height:48, borderRadius:6, overflow:'hidden', cursor:'pointer', border: i===idx ? '2px solid #fff':'2px solid rgba(255,255,255,.3)', opacity: i===idx ? 1 : 0.6, transition:'all .15s' }}>
+              <img src={imgSrc(img.url)} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default function PostCard({ post: initial, onDelete }) {
   const { user, isAuth } = useAuth();
@@ -15,6 +79,7 @@ export default function PostCard({ post: initial, onDelete }) {
   const [loadedComments, setLoadedComments] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [addingComment, setAddingComment] = useState(false);
+  const [lightbox, setLightbox] = useState(null); // null or index number
 
   const react = async (type) => {
     if (!isAuth) { toast.error('Login to react'); return; }
@@ -57,6 +122,11 @@ export default function PostCard({ post: initial, onDelete }) {
 
   return (
     <div className="card post-card fade">
+      {/* Lightbox */}
+      {lightbox !== null && (
+        <Lightbox images={post.images} startIndex={lightbox} onClose={() => setLightbox(null)} />
+      )}
+
       {/* Shared from */}
       {post.sharedFrom && (
         <div style={{ fontSize:12, color:'#94a3b8', marginBottom:8 }}>🔁 Shared from <strong>@{post.sharedFrom?.author?.username}</strong></div>
@@ -77,11 +147,19 @@ export default function PostCard({ post: initial, onDelete }) {
       {/* Content */}
       {post.content && <p style={{ fontSize:15, lineHeight:1.6, marginBottom: imgCount ? 0 : 8 }}>{post.content}</p>}
 
-      {/* Images */}
+      {/* Images — click any to open lightbox */}
       {imgCount > 0 && (
         <div className={`post-images count-${Math.min(imgCount, 3)}`}>
           {post.images.slice(0, 3).map((img, i) => (
-            <img key={i} src={imgSrc(img.url)} alt="" onError={e => e.target.style.display='none'} />
+            <div key={i} style={{ position:'relative', cursor:'zoom-in' }} onClick={() => setLightbox(i)}>
+              <img src={imgSrc(img.url)} alt="" onError={e => e.target.style.display='none'} style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+              {/* Show "+N more" overlay on the last visible image if there are more */}
+              {i === 2 && imgCount > 3 && (
+                <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,.55)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:22, fontWeight:800 }}>
+                  +{imgCount - 3}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
