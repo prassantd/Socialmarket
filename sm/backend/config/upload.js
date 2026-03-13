@@ -1,28 +1,24 @@
 const multer = require('multer');
-const path   = require('path');
-const fs     = require('fs');
 
-const mkDir = (dir) => { if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); };
-mkDir('uploads/profiles');
-mkDir('uploads/posts');
-mkDir('uploads/services');
-
-const storage = (folder) => multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, `uploads/${folder}`),
-  filename:    (_req, file, cb) => {
-    const name = Date.now() + '-' + Math.round(Math.random() * 1e9) + path.extname(file.originalname);
-    cb(null, name);
-  },
-});
+// Store files in memory as buffer — converted to base64 and saved in MongoDB
+// No disk storage needed, works perfectly on Render/Vercel/any cloud host
 
 const imgFilter = (_req, file, cb) => {
-  /\.(jpg|jpeg|png|gif|webp)$/i.test(file.originalname) ? cb(null, true) : cb(new Error('Images only'));
+  /\.(jpg|jpeg|png|gif|webp)$/i.test(file.originalname)
+    ? cb(null, true)
+    : cb(new Error('Images only (jpg, jpeg, png, gif, webp)'));
 };
 
-const opts = (folder, max = 5 * 1024 * 1024) => ({ storage: storage(folder), fileFilter: imgFilter, limits: { fileSize: max } });
+const opts = { storage: multer.memoryStorage(), fileFilter: imgFilter, limits: { fileSize: 5 * 1024 * 1024 } };
+
+const upload = multer(opts);
 
 module.exports = {
-  uploadProfile: multer(opts('profiles')),
-  uploadPost:    multer(opts('posts', 10 * 1024 * 1024)),
-  uploadService: multer(opts('services', 10 * 1024 * 1024)),
+  uploadProfile: upload,
+  uploadPost:    upload,
+  uploadService: upload,
 };
+
+// Helper: convert multer memory file to base64 data URL
+module.exports.toBase64 = (file) =>
+  `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;

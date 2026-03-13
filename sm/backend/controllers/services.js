@@ -1,5 +1,6 @@
 const Service = require('../models/Service');
 const { Review, Notification } = require('../models/index');
+const { toBase64 } = require('../config/upload');
 
 const recalcRating = async (serviceId) => {
   const all = await Review.find({ service: serviceId });
@@ -47,7 +48,8 @@ exports.create = async (req, res) => {
     const { title, category, description, price, priceType, location, phone, email: cEmail, whatsapp } = req.body;
     if (!title || !category || !description || !price || !location)
       return res.status(400).json({ message: 'Fill all required fields' });
-    const images = (req.files || []).map(f => ({ url: `/uploads/services/${f.filename}` }));
+    // Convert uploaded images to base64 and store directly in MongoDB
+    const images = (req.files || []).map(f => ({ url: toBase64(f) }));
     const service = await Service.create({
       provider: req.user._id, title, category, description,
       price: { amount: Number(price), priceType: priceType || 'fixed' },
@@ -65,12 +67,16 @@ exports.update = async (req, res) => {
     if (service.provider.toString() !== req.user._id.toString()) return res.status(403).json({ message: 'Not authorized' });
     const fields = ['title','description','location','category'];
     fields.forEach(f => { if (req.body[f]) service[f] = req.body[f]; });
-    if (req.body.price)    service.price.amount    = Number(req.body.price);
+    if (req.body.price)     service.price.amount    = Number(req.body.price);
     if (req.body.priceType) service.price.priceType = req.body.priceType;
-    if (req.body.phone)    service.contactInfo.phone    = req.body.phone;
-    if (req.body.email)    service.contactInfo.email    = req.body.email;
-    if (req.body.whatsapp) service.contactInfo.whatsapp = req.body.whatsapp;
-    if (req.files?.length) service.images = [...service.images, ...req.files.map(f => ({ url: `/uploads/services/${f.filename}` }))];
+    if (req.body.phone)     service.contactInfo.phone    = req.body.phone;
+    if (req.body.email)     service.contactInfo.email    = req.body.email;
+    if (req.body.whatsapp)  service.contactInfo.whatsapp = req.body.whatsapp;
+    // Append new images as base64
+    if (req.files?.length) {
+      const newImgs = req.files.map(f => ({ url: toBase64(f) }));
+      service.images = [...service.images, ...newImgs];
+    }
     await service.save();
     await service.populate('provider', 'username profilePicture');
     res.json({ service });

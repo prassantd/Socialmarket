@@ -8,11 +8,10 @@ export const price = (amount, type) => {
 };
 export const initials = (n='') => n.split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase() || '?';
 
-// Returns full URL for an image (local upload or external)
+// Images are stored as base64 data URLs in MongoDB — use them directly in <img src>
 export const imgSrc = (url) => {
   if (!url) return null;
-  if (url.startsWith('http')) return url;
-  return `http://localhost:5000${url}`;
+  return url; // base64 data URLs (data:image/...) and http URLs both work directly
 };
 
 export const REACTIONS = { like:'👍', love:'❤️', haha:'😂', wow:'😮', sad:'😢', angry:'😠' };

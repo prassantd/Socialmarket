@@ -1,6 +1,7 @@
 const Post    = require('../models/Post');
 const Comment = require('../models/Comment');
 const { Follower, Notification } = require('../models/index');
+const { toBase64 } = require('../config/upload');
 
 const withReaction = (post, userId) => {
   const obj = post.toObject ? post.toObject() : { ...post };
@@ -39,7 +40,8 @@ const createPost = async (req, res) => {
     const { content, visibility } = req.body;
     if (!content?.trim() && !req.files?.length)
       return res.status(400).json({ message: 'Post needs content or image' });
-    const images = (req.files || []).map(f => ({ url: `/uploads/posts/${f.filename}` }));
+    // Convert each uploaded file buffer to base64 data URL and store in MongoDB
+    const images = (req.files || []).map(f => ({ url: toBase64(f) }));
     const post = await Post.create({ author: req.user._id, content: content || '', images, visibility: visibility || 'public' });
     await post.populate('author', 'username profilePicture');
     res.status(201).json({ post });

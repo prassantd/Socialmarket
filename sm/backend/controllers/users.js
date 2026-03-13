@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const { Follower, Notification } = require('../models/index');
+const { toBase64 } = require('../config/upload');
 
 const getProfile = async (req, res) => {
   try {
@@ -22,7 +23,8 @@ const updateProfile = async (req, res) => {
     if (bio      !== undefined) updates.bio      = bio;
     if (location !== undefined) updates.location = location;
     if (website  !== undefined) updates.website  = website;
-    if (req.file) updates.profilePicture = `/uploads/profiles/${req.file.filename}`;
+    // Convert profile picture to base64 and store directly in MongoDB
+    if (req.file) updates.profilePicture = toBase64(req.file);
     const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true });
     res.json({ user });
   } catch (e) { res.status(500).json({ message: e.message }); }
